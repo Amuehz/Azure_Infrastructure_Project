@@ -1,0 +1,28 @@
+{
+    "builders": [{
+        "type": "azure-arm",
+        "use_azure_cli_auth": true,
+        "subscription_id": "a9ab978b-a5d4-42b1-a453-fe2690ceb40f",
+        "build_resource_group_name": "Azuredevops",
+        "managed_image_resource_group_name": "Azuredevops",
+        "managed_image_name": "myPackerImage",
+        "os_type": "Linux",
+        "image_publisher": "Canonical",
+        "image_offer": "0001-com-ubuntu-server-jammy",
+        "image_sku": "22_04-lts-gen2",
+        "image_version": "latest",
+        "vm_size": "Standard_B1s",
+        "azure_tags": {
+            "project": "udacity-azure-devops",
+            "environment": "development"
+        }
+    }],
+    "provisioners": [{
+        "inline": [
+            "echo 'Hello, World!' > index.html",
+            "nohup busybox httpd -f -p 80 &"
+        ],
+        "inline_shebang": "/bin/sh -x",
+        "type": "shell"
+    }]
+}

@@ -1,0 +1,12 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Packer cache
+packer_cache/
+
+# OS files
+.DS_Store
+Thumbs.db

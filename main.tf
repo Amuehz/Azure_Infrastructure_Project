@@ -11,12 +11,10 @@ provider "azurerm" {
   features {}
 }
 
-# Use existing resource group
 data "azurerm_resource_group" "main" {
   name = var.resource_group_name
 }
 
-# Virtual Network
 resource "azurerm_virtual_network" "main" {
   name                = "${var.prefix}-network"
   address_space       = ["10.0.0.0/16"]
@@ -28,21 +26,17 @@ resource "azurerm_virtual_network" "main" {
   }
 }
 
-# Subnet
 resource "azurerm_subnet" "main" {
   name                 = "${var.prefix}-subnet"
   resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.0.1.0/24"]
 }
-
-# Network Security Group
 resource "azurerm_network_security_group" "main" {
   name                = "${var.prefix}-nsg"
   location            = data.azurerm_resource_group.main.location
   resource_group_name = data.azurerm_resource_group.main.name
 
-  # Deny inbound from internet
   security_rule {
     name                       = "DenyInternetInbound"
     priority                   = 100
@@ -55,7 +49,18 @@ resource "azurerm_network_security_group" "main" {
     destination_address_prefix = "*"
   }
 
-  # Allow VMs on subnet to communicate
+  security_rule {
+    name                       = "AllowHTTPFromLoadBalancer"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+  }
+
   security_rule {
     name                       = "AllowVnetInbound"
     priority                   = 200
@@ -68,12 +73,22 @@ resource "azurerm_network_security_group" "main" {
     destination_address_prefix = "VirtualNetwork"
   }
 
+  security_rule {
+    name                       = "AllowVnetOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
   tags = {
     project = "udacity-azure-devops"
   }
 }
-
-# Public IP for Load Balancer
 resource "azurerm_public_ip" "main" {
   name                = "${var.prefix}-public-ip"
   location            = data.azurerm_resource_group.main.location
@@ -86,7 +101,6 @@ resource "azurerm_public_ip" "main" {
   }
 }
 
-# Load Balancer
 resource "azurerm_lb" "main" {
   name                = "${var.prefix}-lb"
   location            = data.azurerm_resource_group.main.location
@@ -103,13 +117,11 @@ resource "azurerm_lb" "main" {
   }
 }
 
-# Backend Address Pool
 resource "azurerm_lb_backend_address_pool" "main" {
   loadbalancer_id = azurerm_lb.main.id
   name            = "${var.prefix}-backend-pool"
 }
 
-# Availability Set
 resource "azurerm_availability_set" "main" {
   name                = "${var.prefix}-availability-set"
   location            = data.azurerm_resource_group.main.location
@@ -122,8 +134,6 @@ resource "azurerm_availability_set" "main" {
     project = "udacity-azure-devops"
   }
 }
-
-# Network Interfaces
 resource "azurerm_network_interface" "main" {
   count               = var.vm_count
   name                = "${var.prefix}-nic-${count.index}"
@@ -141,7 +151,6 @@ resource "azurerm_network_interface" "main" {
   }
 }
 
-# Associate NICs with Backend Pool
 resource "azurerm_network_interface_backend_address_pool_association" "main" {
   count                   = var.vm_count
   network_interface_id    = azurerm_network_interface.main[count.index].id
@@ -149,13 +158,11 @@ resource "azurerm_network_interface_backend_address_pool_association" "main" {
   backend_address_pool_id = azurerm_lb_backend_address_pool.main.id
 }
 
-# Associate NSG with Subnet
 resource "azurerm_subnet_network_security_group_association" "main" {
   subnet_id                 = azurerm_subnet.main.id
   network_security_group_id = azurerm_network_security_group.main.id
 }
 
-# Virtual Machines
 resource "azurerm_linux_virtual_machine" "main" {
   count                           = var.vm_count
   name                            = "${var.prefix}-vm-${count.index}"
